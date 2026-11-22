@@ -2,7 +2,8 @@
 
 from .client import SitemarkAPI
 
-def list_sites(api: SitemarkAPI):
+def list_sites(api: SitemarkAPI, company: str) -> list[dict]:
+    active_company = company or api.company
     page = 1
     sites = []
     while True:

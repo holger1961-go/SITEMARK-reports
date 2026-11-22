@@ -11,30 +11,55 @@ from ..excel.workbook import create_excel_report
 from ..excel.diagramm import DiagrammMaker
 from ..excel.styles import ExcelStyles
 
+from ..config_black import API_KEY_B, API_KEY_T
+
 from ..excel.macro import make_macro
 
 class Pipeline:
     def __init__(self):
+        # TODO 261122 api wegmachen und in den Methoden die Clients direkt verwenden
         self.api = SitemarkAPI()
-        self.sites = []
+        key_1 = API_KEY_B
+        key_2 = API_KEY_T
+        name_1 = "BELECTRIC"
+        name_2 = "TECHNICA"
 
+        self.companies = [name_1, name_2]
+        self.clients = {
+            name_1: SitemarkAPI(api_key=key_1, company=name_1),
+            name_2: SitemarkAPI(api_key=key_2, company=name_2),
+        }
+        self.sites = []
 
     # =================================================================================================
     # Einlesen der SITES aus SITEMARK
     # =================================================================================================
     def fetch_sites(self):
         logger.info("Lade Sites aus Sitemark ...")
-        sites = list_sites(self.api)
-        # SUPPORT: if SELECTED_SITES is not defined in the global scope,
-        # fall back to selecting all sites.
         selected_names = globals().get("SELECTED_SITES")
-        if selected_names is None:
-            self.sites = sites
-        else:
-            self.sites = [site for site in sites if site.get("name") in selected_names]
+        collected_sites = []
+
+        for company in self.companies:
+            client = self.clients[company]
+            sites = list_sites(client, company=company)
+            if selected_names is None:
+                collected_sites.extend(sites)
+            else:
+                collected_sites.extend(
+                    [site for site in sites if site.get("name") in selected_names]
+                )
+
+        self.sites = collected_sites
         logger.info("%s Sites ausgewählt.", len(self.sites))
         for site in self.sites:
-            logger.info("Site ID=%s | Site Name=%s", site.get("id"), site.get("name"))
+            logger.info(
+                "Company=%s | Site ID=%s | Site Name=%s",
+                site.get("company"),
+                site.get("id"),
+                site.get("name"),
+            )
+
+
 
     # =================================================================================================
     # Ausgaben der SITES in EXCEL zur Koordination
@@ -42,18 +67,28 @@ class Pipeline:
     # =================================================================================================
     def export_sites(self):
         logger.info("Erzeuge Site-Auswahldatei ...")
-        sites = list_sites(self.api)
         wb = Workbook()
         ws = wb.active
         ws.title = "Sites"
-        ws.append(["Aktiv", "Site ID", "Site Name"])
-        for site in sites:
-            ws.append(["", site["id"], site["name"]])
+        ws.append(["Aktiv", "Company", "Site ID", "Site Name"])
+
+        total_sites = 0
+        for company in self.companies:
+            logger.info("Lade Sites aus Sitemark für %s ...", company)
+            client = self.clients[company]
+            sites = list_sites(client, company=company)
+            for site in sites:
+                ws.append(["", company, site["id"], site["name"]])
+                total_sites += 1
+
         ws.column_dimensions["A"].width = 7
         ws.column_dimensions["B"].width = 15
-        ws.column_dimensions["C"].width = 50
-        wb.save("sites.xlsx")
-        logger.info("%s Sites nach sites.xlsx geschrieben.", len(sites))
+        ws.column_dimensions["C"].width = 15
+        ws.column_dimensions["D"].width = 50
+        filename = "sites.xlsx"
+        wb.save(filename)
+        logger.info("%s Sites nach %s geschrieben.", total_sites, filename)
+
 
     # =================================================================================================
     # Einlesen der SITES aus EXCEL mit Markierungen zur Koordination
@@ -64,11 +99,12 @@ class Pipeline:
         ws = wb["Sites"]
         self.sites = []
         for row in ws.iter_rows(min_row=2, values_only=True):
-            aktiv, site_id, site_name = row
+            aktiv, company, site_id, site_name = row
             if str(aktiv).strip().upper() == "X":
                 self.sites.append({
                     "id": site_id,
-                    "name": site_name
+                    "name": site_name,
+                    "company": company
                 })
         logger.info(f"Sites markiert:                                       _______{len(self.sites):>10}")
 
@@ -78,9 +114,12 @@ class Pipeline:
     def fetch_punchlists(self):
         wb, w_s = create_excel_report()
 
+        print(f"Punchlist Items für {len(self.sites)} markierte Sites abrufen...")
         all_items = []
+        # TODO >> AUFRUF
         for index, site in enumerate(self.sites):
-            items = list_punchlist_items(self.api, site["id"], site["name"])
+            print(f"Punchlist Items für Site {site['company']} ___________________ {site['name']} (ID: {site['id']}) abrufen...")
+            items = list_punchlist_items(self.api, site["company"], site["id"], site["name"])
             status_count = count_status(items)
             open_points = count_weeks(items, "Open Point")
             checklisten = count_weeks(items, "Checkliste")

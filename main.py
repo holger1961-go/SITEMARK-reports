@@ -7,6 +7,6 @@ if False:
         "Auswahl: "
     ).strip().upper()
 else:
-    mode = "M"
+    mode = "N"
 
 Pipeline().run(mode)

@@ -129,7 +129,9 @@ def flatten_item(item, site_name):
 # List Punchlist Items, bei SITEMARK unter layerFeatures mit semantic_type = PUNCH_LIST_ITEMS erhalten.
 # Die API liefert die Daten paginiert auf 100 Items pro Seite.
 # Daher wird hier eine Schleife verwendet, um alle Seiten abzurufen und die Ergebnisse zu sammeln.
-def list_punchlist_items(api: SitemarkAPI, site_id: int, site_name: str):
+def list_punchlist_items(api: SitemarkAPI, company: str, site_id: int, site_name: str):
+# TODO 261122 def list_punchlist_items(site_id: int, site_name: str):
+    active_company = company or api.company
     all_raw_items = []
     page = 1
     while True:
