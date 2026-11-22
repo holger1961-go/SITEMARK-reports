@@ -2,36 +2,38 @@ from __future__ import annotations
 
 import requests
 
-from ..config_black import API_KEY_B
+from ..config_black import API_KEY_B, API_KEY_T, COMPANIES
 from ..utils.logging_setup import logger
 
 
 API_BASE = "https://api.sitemark.com"
 
+
 class SitemarkAPI:
-    def __init__(self, api_key: str | None = None, company: str | None = None):
-            self.api_key = api_key or None
-            self.company = company or "default"
-            self.headers = {
-                "Authorization": f"{self.api_key}",
-                "Accept": "application/json",
-            }
-            
-            if not self.api_key:
-                logger.warning("Kein SITEMARK API-Key gesetzt (Firma: %s).", self.company)
+    def __init__(self, company: str | None = None):
+        self.company = (company or "default").strip().upper()
 
-    def get(self, endpoint: str, params=None):
-        print(f"GET request to endpoint: >{self.company}< {endpoint} with params: {params}")
+        company_keys = { COMPANIES[0]: API_KEY_B, COMPANIES[1]: API_KEY_T, }
+        # api_key über company nachschlagen
+        self.api_key = company_keys.get(self.company)
+        self.headers: dict[str, str] = { "Accept": "application/json", }
 
+        if self.api_key:
+            self.headers["Authorization"] = str(self.api_key)
+        else:
+            logger.warning(
+                "Kein SITEMARK API-Key gesetzt (Firma: %s).", self.company
+            )
 
-
+    def get(self, endpoint: str, params: dict | None = None):
         url = f"{API_BASE}/{endpoint.lstrip('/')}"
         # logger.info(f"GET form url {url} with params: {params}")
+
         response = requests.get(
             url,
             headers=self.headers,
             params=params,
-            timeout=60
+            timeout=60,
         )
         response.raise_for_status()
         return response.json()

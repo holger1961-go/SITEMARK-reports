@@ -151,7 +151,7 @@ def list_punchlist_items(api: SitemarkAPI, company: str, site_id: int, site_name
         all_raw_items.extend(items)
         # print(f"Seite {page}: {len(items)} Items")
 
-        print(f"<-- {page * len(items)}", end="\r", flush=True)
+        print(f"{site_name} <-- {page * len(items)}", end="\r", flush=True)
 
         if len(items) < 100:
             break

@@ -11,7 +11,7 @@ from ..excel.workbook import create_excel_report
 from ..excel.diagramm import DiagrammMaker
 from ..excel.styles import ExcelStyles
 
-from ..config_black import API_KEY_B, API_KEY_T
+from ..config_black import COMPANIES
 
 from ..excel.macro import make_macro
 
@@ -19,16 +19,12 @@ class Pipeline:
     def __init__(self):
         # TODO 261122 api wegmachen und in den Methoden die Clients direkt verwenden
         self.api = SitemarkAPI()
-        key_1 = API_KEY_B
-        key_2 = API_KEY_T
-        name_1 = "BELECTRIC"
-        name_2 = "TECHNICA"
 
-        self.companies = [name_1, name_2]
-        self.clients = {
-            name_1: SitemarkAPI(api_key=key_1, company=name_1),
-            name_2: SitemarkAPI(api_key=key_2, company=name_2),
-        }
+
+        self.companies = COMPANIES
+        name_1 = self.companies[0]
+        name_2 = self.companies[1]
+        self.clients = { name_1: SitemarkAPI(company=name_1), name_2: SitemarkAPI(company=name_2), }
         self.sites = []
 
     # =================================================================================================
@@ -74,7 +70,7 @@ class Pipeline:
 
         total_sites = 0
         for company in self.companies:
-            logger.info("Lade Sites aus Sitemark für %s ...", company)
+            logger.info("Einschreiben Sites aus Sitemark für %s ...", company)
             client = self.clients[company]
             sites = list_sites(client, company=company)
             for site in sites:
@@ -113,13 +109,11 @@ class Pipeline:
     # =================================================================================================
     def fetch_punchlists(self):
         wb, w_s = create_excel_report()
-
-        print(f"Punchlist Items für {len(self.sites)} markierte Sites abrufen...")
         all_items = []
-        # TODO >> AUFRUF
         for index, site in enumerate(self.sites):
-            print(f"Punchlist Items für Site {site['company']} ___________________ {site['name']} (ID: {site['id']}) abrufen...")
-            items = list_punchlist_items(self.api, site["company"], site["id"], site["name"])
+            company = (site.get("company") or "").strip().upper()
+            api_client = self.clients.get(company, self.api)
+            items = list_punchlist_items(api_client, site["company"], site["id"], site["name"])
             status_count = count_status(items)
             open_points = count_weeks(items, "Open Point")
             checklisten = count_weeks(items, "Checkliste")
@@ -145,9 +139,10 @@ class Pipeline:
 
             count_runs = 0
             for item in items:
+                # print(">>> {item}")
                 count_runs += 1
                 if count_runs % 10 == 0:
-                    print(f"--> {count_runs}", end="\r", flush=True)
+                    print(f"{" " * 108}--> {count_runs:>10} | {site["name"]} ", end="\r", flush=True)
                 w_s[0].append([
                     item.get("site_name"),
                     item.get("description"),
